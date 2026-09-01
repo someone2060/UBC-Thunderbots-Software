@@ -290,6 +290,20 @@ class ProtoConfigurationWidget(QWidget):
 
         return field_list
 
+    def get_field_comment(self, descriptor) -> str:
+        """Extracts leading comments for a given FieldDescriptor"""
+        file_proto = descriptor_pb2.FileDescriptorProto()
+        descriptor.file.CopyToProto(file_proto)
+
+        print(len(file_proto.source_code_info.location)) # TODO --include_source_info flag
+        for loc in file_proto.source_code_info.location:
+            # Check if location matches a field path and contains comments
+            if loc.leading_comments and loc.path:
+                # Match against field target
+                if loc.path[-2] == 2 and loc.path[-1] == (descriptor.index):
+                    return loc.leading_comments.strip()
+        return ""
+
     def build_proto(self, message, current_attr=None) -> None:
         """Builds the given message to a field
 
@@ -299,10 +313,6 @@ class ProtoConfigurationWidget(QWidget):
         if not current_attr:
             current_attr = "self.proto_to_configure"
 
-        # Fetch file proto once for comment/descriptor lookup
-        file_proto = descriptor_pb2.FileDescriptorProto()
-        message.DESCRIPTOR.file.CopyToProto(file_proto)
-
         for descriptor in message.DESCRIPTOR.fields:
             key = descriptor.name
             value = getattr(message, descriptor.name)
@@ -311,19 +321,13 @@ class ProtoConfigurationWidget(QWidget):
             # us serialize the message if all the required fields are not set (even
             # if they have a default). So lets just set the default as the value
             if descriptor.type != descriptor.TYPE_MESSAGE:
+                ###########
+                comment = self.get_field_comment(descriptor)
+                print(f"Field: {descriptor.name} | Comment: {comment}")
+                ###########
                 if descriptor.type == descriptor.TYPE_STRING:
                     exec(f"{current_attr}.{key} = '{value}'")
                 else:
                     exec(f"{current_attr}.{key} = {value}")
             else:
                 self.build_proto(value, f"{current_attr}.{key}")
-
-            # Extract FieldDescriptorProto from file_proto directly
-            msg_proto = next(
-                m for m in file_proto.message_type if m.name == message.DESCRIPTOR.name
-            )
-            field_proto = next(f for f in msg_proto.field if f.name == descriptor.name)
-
-            print("FieldProto name:", field_proto.name)
-
-        print("New message:", message)
