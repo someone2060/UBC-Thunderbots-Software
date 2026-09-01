@@ -295,7 +295,9 @@ class ProtoConfigurationWidget(QWidget):
         file_proto = descriptor_pb2.FileDescriptorProto()
         descriptor.file.CopyToProto(file_proto)
 
-        print(len(file_proto.source_code_info.location)) # TODO --include_source_info flag
+        print(
+            len(file_proto.source_code_info.location)
+        )  # TODO --include_source_info flag
         for loc in file_proto.source_code_info.location:
             # Check if location matches a field path and contains comments
             if loc.leading_comments and loc.path:
